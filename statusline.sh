@@ -1,15 +1,24 @@
 #!/bin/sh
 
-input=$(cat)
-[ -z "$input" ] && input="$1"
+SHOW_TOKENS=false
+for arg in "$@"; do
+  case "$arg" in
+    --tokens) SHOW_TOKENS=true ;;
+  esac
+done
 
-# Pass the input data safely through an environment variable
+input=$(cat)
+
+# Pass the input data safely through environment variables
 export PLUGIN_JSON_INPUT="$input"
+export PLUGIN_SHOW_TOKENS="$SHOW_TOKENS"
 
 python3 -c '
 import os, sys, json, datetime
 
 input_data = os.environ.get("PLUGIN_JSON_INPUT", "").strip()
+show_tokens = os.environ.get("PLUGIN_SHOW_TOKENS", "false") == "true"
+
 if not input_data:
     print("🌳 No Data | 🌿 0% | ⏱️ --", end="")
     sys.exit(0)
@@ -31,7 +40,20 @@ cw = data.get("context_window", {})
 used = cw.get("used_percentage")
 usage_str = str(int(used)) + "%" if used is not None else "0%"
 
-# 3. Parse Rate Limits
+# 3. Parse Session Tokens
+total_in = cw.get("total_input_tokens", 0) or 0
+total_out = cw.get("total_output_tokens", 0) or 0
+
+def fmt_tokens(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}m"
+    if n >= 1_000:
+        return f"{n / 1_000:.0f}k"
+    return str(n)
+
+tokens_str = fmt_tokens(total_in) + " in / " + fmt_tokens(total_out) + " out"
+
+# 4. Parse Rate Limits
 rl = data.get("rate_limits", {})
 rl_5h = rl.get("five_hour", {})
 pct = rl_5h.get("used_percentage")
@@ -63,6 +85,10 @@ if pct is not None:
 
     rate_limit_str = color + "5h " + bar + " " + str(pct_int) + "% resets " + reset_time + reset_color
 
-# Output final string explicitly without a newline
-print("🌳 " + model + " | 🌿 " + usage_str + " | ⏱️ " + rate_limit_str, end="")
+# Build output
+parts = ["🌳 " + model, "🌿 " + usage_str]
+if show_tokens:
+    parts.append("🦥 " + tokens_str)
+parts.append("⏱️ " + rate_limit_str)
+print(" | ".join(parts), end="")
 '
