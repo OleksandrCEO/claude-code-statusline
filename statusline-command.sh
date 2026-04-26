@@ -1,86 +1,68 @@
 #!/bin/sh
+
 input=$(cat)
+[ -z "$input" ] && input="$1"
 
-model=$(echo "$input" | jq -r '.model.display_name // "Unknown Model"')
-used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-worktree=$(echo "$input" | jq -r '.worktree.name // empty')
-total_cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
-current_dir=$(echo "$input" | jq -r '.worktree.original_cwd // empty')
-rl_5h_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty' | awk '{printf "%.0f", $1}')
-rl_5h_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
-rl_7d_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-rl_7d_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+# Pass the input data safely through an environment variable
+export PLUGIN_JSON_INPUT="$input"
 
-if [ -n "$used" ]; then
-  used_display=$(printf "%.0f" "$used")
-  usage_str="${used_display}%"
-else
-  usage_str="0%"
-fi
+python3 -c '
+import os, sys, json, datetime
 
-if [ -n "$worktree" ]; then
-  worktree_str="${worktree}"
-else
-  worktree_str="no worktree"
-fi
+input_data = os.environ.get("PLUGIN_JSON_INPUT", "").strip()
+if not input_data:
+    print("🌳 No Data | 🌿 0% | ⏱️ --", end="")
+    sys.exit(0)
 
-GREEN='\033[32m'
-YELLOW='\033[33m'
-RED='\033[31m'
-RESET='\033[0m'
+try:
+    data = json.loads(input_data)
+except Exception:
+    print("🌳 Parse Error | 🌿 0% | ⏱️ --", end="")
+    sys.exit(0)
 
-git_str=""
-if git rev-parse --git-dir > /dev/null 2>&1; then
-  branch=$(git branch --show-current 2>/dev/null)
-  [ -z "$branch" ] && branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-  staged=$(git diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
-  modified=$(git diff --numstat 2>/dev/null | wc -l | tr -d ' ')
+# 1. Parse Model
+model_data = data.get("model", {})
+model = model_data.get("display_name", "") if isinstance(model_data, dict) else str(model_data)
+if not model or model == "{}":
+    model = "Unknown Model"
 
-  git_str="$branch"
-  [ "$staged" -gt 0 ] && git_str="${git_str} $(printf "${GREEN}+${staged}${RESET}")"
-  [ "$modified" -gt 0 ] && git_str="${git_str} $(printf "${YELLOW}~${modified}${RESET}")"
-else
-  git_str="no branch"
-fi
+# 2. Parse Context Window
+cw = data.get("context_window", {})
+used = cw.get("used_percentage")
+usage_str = str(int(used)) + "%" if used is not None else "0%"
 
+# 3. Parse Rate Limits
+rl = data.get("rate_limits", {})
+rl_5h = rl.get("five_hour", {})
+pct = rl_5h.get("used_percentage")
+reset_ts = rl_5h.get("resets_at")
 
-if [ -n "$total_cost" ]; then
-  cost_display=$(awk "BEGIN { printf \"%.2f\", $total_cost }")
-  block_str="\$${cost_display}"
-else
-  block_str="\$0.00"
-fi
+rate_limit_str = "--"
+if pct is not None:
+    pct_int = int(pct)
 
-make_bar() {
-  pct="$1"
-  width=10
-  filled=$(( pct * width / 100 ))
-  empty=$(( width - filled ))
-  bar=""
-  i=0
-  while [ $i -lt $filled ]; do bar="${bar}█"; i=$(( i + 1 )); done
-  while [ $i -lt $width ];  do bar="${bar}░"; i=$(( i + 1 )); done
-  printf "%s" "$bar"
-}
+    # Define colors
+    if pct_int >= 90: color = "\033[31m"   # RED
+    elif pct_int >= 70: color = "\033[33m" # YELLOW
+    else: color = "\033[90m"               # GRAY (Dark Gray) for normal state
+    reset_color = "\033[0m"
 
-format_rl() {
-  pct="$1"
-  reset_ts="$2"
-  label="$3"
-  [ -z "$pct" ] && return
-  if [ "$pct" -ge 90 ]; then color="$RED"
-  elif [ "$pct" -ge 70 ]; then color="$YELLOW"
-  else color="$GREEN"
-  fi
-  reset_time=$(date -r "$reset_ts" "+%-I:%M%p" 2>/dev/null || date -d "@$reset_ts" "+%-I:%M%p" 2>/dev/null)
-  bar=$(make_bar "$pct")
-  printf "${color}${label} ${bar} ${pct}%% resets ${reset_time}${RESET}"
-}
+    # Calculate reset time (24-hour format)
+    reset_time = "--"
+    if reset_ts:
+        try:
+            dt = datetime.datetime.fromtimestamp(reset_ts)
+            reset_time = dt.strftime("%H:%M")
+        except Exception:
+            pass
 
-rate_limit_str=""
-rate_limit_str="${rate_limit_str}$(format_rl "$rl_5h_pct" "$rl_5h_reset" "5h")"
-# rate_limit_str="${rate_limit_str}$(format_rl "$rl_7d_pct" "$rl_7d_reset" "7d")"
+    # Draw progress bar
+    width = 10
+    filled = int((pct_int * width) / 100)
+    bar = "█" * filled + "░" * (width - filled)
 
-repo_root=$(cd "$current_dir" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || echo "$current_dir")
-dir_display=$(basename "$repo_root")
-printf "🤖 %s | 🧠 %s | 💰 %s | ⏱️ %s\n📁 %s | 🌳 %s | 🌿 %s" "$model" "$usage_str" "$block_str" "$rate_limit_str" "$dir_display" "$worktree_str" "$git_str"
+    rate_limit_str = color + "5h " + bar + " " + str(pct_int) + "% resets " + reset_time + reset_color
+
+# Output final string explicitly without a newline
+print("🌳 " + model + " | 🌿 " + usage_str + " | ⏱️ " + rate_limit_str, end="")
+'

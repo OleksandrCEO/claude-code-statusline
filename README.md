@@ -7,48 +7,40 @@ A custom statusline script for [Claude Code](https://claude.ai/claude-code) that
 ## What It Shows
 
 ```
-🤖 Claude Sonnet 4.6 | 🧠 12% | 💰 $0.04 | ⏱️ 5h ████░░░░░░ 42% resets 2:00PM
-📁 my-project | 🌳 my-feature | 🌿 main +42 -7
+🌳 Claude Sonnet 4.6 | 🌿 12% | ⏱️ 5h ████░░░░░░ 42% resets 14:00
 ```
 
 | Field | Description |
 |---|---|
-| 🤖 Model | Active Claude model name |
-| 🧠 Context | Context window usage percentage |
-| 💰 Cost | Cumulative session cost in USD |
-| ⏱️ Rate Limit | 5-hour rate limit usage bar, percentage, and reset time |
-| 📁 Folder | Current working directory name |
-| 🌳 Worktree | Active git worktree name |
-| 🌿 Branch | Current git branch with lines added/removed |
+| 🌳 Model | Active Claude model name |
+| 🌿 Context | Context window usage percentage |
+| ⏱️ Rate Limit | 5-hour rate limit usage bar, percentage, and reset time (24h format) |
 
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/claude-code) CLI installed
-- [`jq`](https://jqlang.github.io/jq/) — for parsing the JSON input from Claude Code
-- `git` — for branch and diff stats
-
-Install `jq` if needed:
-
-```sh
-# macOS
-brew install jq
-
-# Ubuntu/Debian
-apt-get install jq
-```
+- `python3` — for parsing JSON and formatting output
 
 ## Setup
 
-**1. Copy the script somewhere accessible:**
+### Step 1. Download the script
+
+Run this command in your terminal to download the script:
 
 ```sh
-cp statusline-command.sh ~/.claude/statusline-command.sh
+curl -o ~/.claude/statusline-command.sh \
+  https://raw.githubusercontent.com/OleksandrCEO/claude-code-statusline/main/statusline-command.sh
+```
+
+and make it executable:
+
+```sh
 chmod +x ~/.claude/statusline-command.sh
 ```
 
-**2. Add the statusline configuration to `.claude/settings.json`:**
+### Step 2. Configure Claude Code
 
-For a **global** setup (applies to all projects), edit `~/.claude/settings.json`:
+Open `~/.claude/settings.json` (create it if it doesn't exist) and add this block:
 
 ```json
 {
@@ -62,7 +54,9 @@ For a **global** setup (applies to all projects), edit `~/.claude/settings.json`
 
 For a **project-level** setup, add the same block to `.claude/settings.json` in your project root.
 
-**3. Start Claude Code** — the statusline will appear automatically.
+### Step 3. Start Claude Code
+
+The statusline will appear automatically.
 
 ## Customization
 
@@ -72,18 +66,9 @@ The script reads a JSON object from stdin with the following fields:
 |---|---|
 | `model.display_name` | Name of the active model |
 | `context_window.used_percentage` | Context usage as a float |
-| `worktree.name` | Active worktree name |
-| `cost.total_cost_usd` | Session cost |
-| `cost.total_lines_added` | Lines added this session |
-| `cost.total_lines_removed` | Lines removed this session |
-| `workspace.current_dir` | Current working directory |
 | `rate_limits.five_hour.used_percentage` | 5-hour rate limit usage percentage |
 | `rate_limits.five_hour.resets_at` | Unix timestamp when 5-hour limit resets |
-| `rate_limits.seven_day.used_percentage` | 7-day rate limit usage percentage (available for optional display) |
-| `rate_limits.seven_day.resets_at` | Unix timestamp when 7-day limit resets (available for optional display) |
 
-The rate-limit bar uses color thresholds: green (<70%), yellow (70-89%), red (>=90%).
-
-By default, the script shows the 5-hour limit and keeps 7-day output commented out. You can enable 7-day display by uncommenting the `rate_limit_str` line near the bottom of `statusline-command.sh`.
+The rate-limit bar uses color thresholds: gray (<70%), yellow (70–89%), red (>=90%).
 
 Edit `statusline-command.sh` to change the format, add new fields, or adjust colors.
