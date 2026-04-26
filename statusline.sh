@@ -1,9 +1,11 @@
 #!/bin/sh
 
 SHOW_TOKENS=false
+BAR_STYLE=pacman
 for arg in "$@"; do
   case "$arg" in
     --tokens) SHOW_TOKENS=true ;;
+    --bar=*) BAR_STYLE="${arg#--bar=}" ;;
   esac
 done
 
@@ -12,12 +14,14 @@ input=$(cat)
 # Pass the input data safely through environment variables
 export PLUGIN_JSON_INPUT="$input"
 export PLUGIN_SHOW_TOKENS="$SHOW_TOKENS"
+export PLUGIN_BAR_STYLE="$BAR_STYLE"
 
 python3 -c '
 import os, sys, json, datetime
 
 input_data = os.environ.get("PLUGIN_JSON_INPUT", "").strip()
 show_tokens = os.environ.get("PLUGIN_SHOW_TOKENS", "false") == "true"
+bar_style = os.environ.get("PLUGIN_BAR_STYLE", "pacman")
 
 if not input_data:
     print("🌳 No Data | 🌿 0% | ⏱️ --", end="")
@@ -81,9 +85,21 @@ if pct is not None:
     # Draw progress bar
     width = 10
     filled = int((pct_int * width) / 100)
-    bar = "█" * filled + "░" * (width - filled)
 
-    rate_limit_str = color + "5h " + bar + " " + str(pct_int) + "% resets " + reset_time + reset_color
+    if bar_style == "pacman":
+        dim = "\033[38;2;60;60;60m"
+        eaten = max(filled - 1, 0) if filled > 0 else 0
+        uneaten = (width - filled) if filled > 0 else (width - 1)
+        bar = dim + "·" * eaten + color + "ᗧ" + "•" * uneaten + reset_color
+    elif bar_style == "none":
+        bar = ""
+    else:
+        bar = "█" * filled + "░" * (width - filled)
+
+    if bar_style == "none":
+        rate_limit_str = color + "5h " + str(pct_int) + "% resets " + reset_time + reset_color
+    else:
+        rate_limit_str = color + "5h " + bar + " " + str(pct_int) + "% resets " + reset_time + reset_color
 
 # Build output
 parts = ["🌳 " + model, "🌿 " + usage_str]

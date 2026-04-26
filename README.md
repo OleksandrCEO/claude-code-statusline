@@ -7,12 +7,17 @@ A custom statusline script for [Claude Code](https://claude.ai/claude-code) that
 ## What It Shows
 
 ```
-🌳 Opus 4.6 | 🌿 12% | ⏱️ 5h ████░░░░░░ 42% resets 14:00
+🌳 Opus 4.6 | 🌿 12% | ⏱️ 5h ···ᗧ•••••• 42% resets 14:00
 ```
 
-or if token display is enabled:
+or with tokens and block-style bar:
 ```
-🌳 Opus 4.6 | 🌿 12% | 🦥 45k in / 12k out | ⏱️ 5h ████░░░░░░ 42% resets 14:00
+🌳 Opus 4.6 | 🌿 10% | 🦥 422 in / 2k out | ⏱️ 5h ████████░░ 89% resets 15:40
+```
+
+or with no bar:
+```
+🌳 Opus 4.6 | 🌿 10% | ⏱️ 5h 42% resets 14:00
 ```
 
 | Field | Description |
@@ -69,14 +74,17 @@ The statusline will appear automatically.
 | Flag | Description |
 |---|---|
 | `--tokens` | Show session token usage (input / output) |
+| `--bar=pacman` | Pacman-style progress bar `···ᗧ••••••` (default) |
+| `--bar=blocks` | Block-style progress bar `████░░░░░░` |
+| `--bar=none` | No progress bar, only percentage value |
 
-To enable token display, add the flag to the command in `settings.json`:
+To combine options, add the flags to the command in `settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "sh ~/.claude/statusline.sh --tokens",
+    "command": "sh ~/.claude/statusline.sh --tokens --bar=blocks",
     "padding": 0
   }
 }
