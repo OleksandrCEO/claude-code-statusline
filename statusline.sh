@@ -64,9 +64,9 @@ if pct is not None:
     pct_int = int(pct)
 
     # Define colors
-    if pct_int >= 90: color = "\033[31m"   # RED
-    elif pct_int >= 70: color = "\033[33m" # YELLOW
-    else: color = "\033[90m"               # GRAY (Dark Gray) for normal state
+    if pct_int >= 90: color = "\033[38;5;160m"   # RED (Red3)
+    elif pct_int >= 70: color = "\033[38;5;214m" # YELLOW (Orange1)
+    else: color = "\033[90m"                     # GRAY (Dark Gray) for normal state
     reset_color = "\033[0m"
 
     # Calculate reset time (24-hour format)
