@@ -20,12 +20,18 @@ or with no bar:
 🌳 Opus 4.6 | 🌿 10% | ⏱️ 5h 42% resets 14:00
 ```
 
+or with a local model served by [Ollama](https://ollama.com) (`--ollama`):
+```
+🌳 qwen3.6:35b-a3b | 🌿 12% | ⚡ GPU 48% · 23.5 GB
+```
+
 | Field | Description |
 |---|---|
 | 🌳 Model | Active Claude model name |
 | 🌿 Context | Context window usage percentage |
 | 🦥 Tokens | Session token usage (input / output) — optional, see [Options](#options) |
 | ⏱️ Rate Limit | 5-hour rate limit usage bar, percentage, and reset time (24h format) |
+| ⚡ Ollama | Share of the loaded local model in VRAM (the rest runs on CPU) and its size — replaces ⏱️ with `--ollama` |
 
 ## Prerequisites
 
@@ -77,6 +83,7 @@ The statusline will appear automatically.
 | `--bar=pacman` | Pacman-style progress bar `···ᗧ••••••` (default) |
 | `--bar=blocks` | Block-style progress bar `████░░░░░░` |
 | `--bar=none` | No progress bar, only percentage value |
+| `--ollama` | For a local model via Ollama: show GPU/CPU placement instead of the rate limit (local models have none). Reads the server address from `ANTHROPIC_BASE_URL`, default `http://127.0.0.1:11434`; shows `idle` when no model is loaded and `ollama offline` when the server is unreachable |
 
 To combine options, add the flags to the command in `settings.json`:
 

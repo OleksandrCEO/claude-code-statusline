@@ -2,10 +2,13 @@
 
 SHOW_TOKENS=false
 BAR_STYLE=pacman
+# --ollama: local models have no rate limits, so show where Ollama keeps the model (GPU vs CPU) instead
+SHOW_OLLAMA=false
 for arg in "$@"; do
   case "$arg" in
     --tokens) SHOW_TOKENS=true ;;
     --bar=*) BAR_STYLE="${arg#--bar=}" ;;
+    --ollama) SHOW_OLLAMA=true ;;
   esac
 done
 
@@ -15,6 +18,7 @@ input=$(cat)
 export PLUGIN_JSON_INPUT="$input"
 export PLUGIN_SHOW_TOKENS="$SHOW_TOKENS"
 export PLUGIN_BAR_STYLE="$BAR_STYLE"
+export PLUGIN_SHOW_OLLAMA="$SHOW_OLLAMA"
 
 python3 -c '
 import os, sys, json, datetime
@@ -22,6 +26,7 @@ import os, sys, json, datetime
 input_data = os.environ.get("PLUGIN_JSON_INPUT", "").strip()
 show_tokens = os.environ.get("PLUGIN_SHOW_TOKENS", "false") == "true"
 bar_style = os.environ.get("PLUGIN_BAR_STYLE", "pacman")
+show_ollama = os.environ.get("PLUGIN_SHOW_OLLAMA", "false") == "true"
 
 if not input_data:
     print("🌳 No Data | 🌿 0% | ⏱️ --", end="")
@@ -101,10 +106,26 @@ if pct is not None:
     else:
         rate_limit_str = color + "5h " + bar + " " + str(pct_int) + "% resets " + reset_time + reset_color
 
+# 5. Ollama placement: share of the loaded model that sits in VRAM (the rest runs on CPU)
+def ollama_str() -> str:
+    import urllib.request
+    base = os.environ.get("ANTHROPIC_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    try:
+        with urllib.request.urlopen(base + "/api/ps", timeout=0.5) as resp:
+            loaded = json.load(resp).get("models", [])
+    except Exception:
+        return "ollama offline"
+    if not loaded:
+        return "idle"
+    m = loaded[0]
+    size = m.get("size") or 0
+    gpu = int(100 * (m.get("size_vram") or 0) / size) if size else 0
+    return "GPU " + str(gpu) + "% · " + f"{size / 1e9:.1f} GB"
+
 # Build output
 parts = ["🌳 " + model, "🌿 " + usage_str]
 if show_tokens:
     parts.append("🦥 " + tokens_str)
-parts.append("⏱️ " + rate_limit_str)
+parts.append("⚡ " + ollama_str() if show_ollama else "⏱️ " + rate_limit_str)
 print(" | ".join(parts), end="")
 '
